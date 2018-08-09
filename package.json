@@ -1,0 +1,12 @@
+{
+  "name": "distributed-universe",
+  "version": "1.0.0",
+  "main": "index.js",
+  "private": true,
+  "author": "Gabriel Rudey <gabriel.rudey@gmail.com>",
+  "license": "MIT",
+  "dependencies": {
+    "body-parser": "^1.18.3",
+    "express": "^4.16.3"
+  }
+}
