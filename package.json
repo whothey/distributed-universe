@@ -5,9 +5,15 @@
   "private": true,
   "author": "Gabriel Rudey <gabriel.rudey@gmail.com>",
   "license": "MIT",
+  "scripts": {
+    "test": "mocha ./tests/**/*"
+  },
   "dependencies": {
     "body-parser": "^1.18.3",
     "express": "^4.16.3",
     "moment": "^2.22.2"
+  },
+  "devDependencies": {
+    "mocha": "^5.2.0"
   }
 }
