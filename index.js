@@ -23,11 +23,11 @@ app.get('/planets', (req, res) => {
 });
 
 app.post('/planets', (req, res) => {
-    let name = req.params.name,
+    let name = req.body.name,
         newid = PlanetService.list.length,
         planet = new Planet(name);
 
-    console.log(`Created planet ${newid}:`, planet);
+    console.log(`Created planet ${newid}: ${planet.name}`);
     PlanetService.list.push(planet);
 
     res.json({ message: "OK!", planet_id: newid });
