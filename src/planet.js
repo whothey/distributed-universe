@@ -1,19 +1,7 @@
 const moment = require('moment');
-
-class Cost {
-    constructor(name, stamina, time) {
-        this.name    = name;
-        this.stamina = stamina;
-        this.time    = time;
-    }
-}
-
-class BuildOrder {
-    constructor(name, due) {
-        this.name = name;
-        this.due  = due;
-    }
-}
+const {
+    AttackAttribute, DefenseAttribute, IntelAttribute
+} = require('./attributes');
 
 class Planet {
     constructor(name) {
@@ -62,11 +50,12 @@ class Planet {
 
 // In minutes, time to add 1
 Planet.STAMINA_RATE = 1;
+Planet.STAMINA_UPDATE_FREQ = 'minutes';
 
-Planet.BASE_COSTS = {
-    ATTACK:  new Cost(15, 30),
-    DEFENSE: new Cost(30, 15),
-    INTEL:   new Cost(15, 20)
+Planet.ATTRIBUTES = {
+    'attack':  new AttackAttribute(),
+    'defense': new DefenseAttribute(),
+    'intel':   new IntelAttribute()
 };
 
 module.exports = Planet;
