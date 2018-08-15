@@ -34,7 +34,15 @@ app.post('/planets', (req, res) => {
 });
 
 app.get('/planets/:planetid', (req, res) => {
-    res.json({ planet: PlanetService.list[req.params.planetid] });
+    let p = PlanetService.list[req.params.planetid].toJson();
+
+    res.json({ planet: p });
+});
+
+app.get('/planets/:planetid/q', (req, res) => {
+    let p = PlanetService.list[req.params.planetid].qToJson();
+
+    res.json({ planet: p });
 });
 
 app.get('/planets/:planetid/build/:build', (req, res) => {
