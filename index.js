@@ -1,12 +1,14 @@
 const express    = require('express');
 const bodyParser = require('body-parser');
 const Planet     = require('./src/planet');
+const cors       = require('cors');
 
 const PORT = process.env.PORT || 3000;
 
 let app = express();
 
 app.use(bodyParser.json());
+app.use(cors());
 
 let PlanetService = {
     list: []
