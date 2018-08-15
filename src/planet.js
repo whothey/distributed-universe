@@ -31,7 +31,7 @@ class Planet {
 
     getStaminaOn(date) {
         let diff = date.diff(this.staminaFilled, 'minutes'),
-            rate = Math.abs(Math.ceil(diff * this.staminaRate));
+            rate = Math.ceil(Math.abs(diff) * this.staminaRate);
 
         return this.maxStamina - rate;
     }
