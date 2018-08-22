@@ -17,10 +17,10 @@ class DefenseAttribute extends Buildable {
         this.growRate   = 14;
     }
 
-    buildOn(target) {
-        super.buildOn(target);
+    buildOn(target, level) {
+        super.buildOn(target, level);
 
-        target.maxHealth = this.baseHealth + this.growRate * Math.log(this.level);
+        target.maxHealth = Math.ceil(this.baseHealth + this.growRate * Math.log(level));
     }
 }
 

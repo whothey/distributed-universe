@@ -12,9 +12,11 @@ class Buildable {
         return this.scaleTime(level);
     }
 
+    buildOn(target, level) { }
+
     requestBuild(level, lastBuildDue) {
         let lastDue = lastBuildDue || moment(),
-            due     = lastDue.add(this.scaleTime(level), 'minutes');
+            due     = lastDue.clone().add(this.scaleTime(level), 'minutes');
 
         return new BuildOrder(this.identifier, due, level);
     }

@@ -6,6 +6,7 @@
   "author": "Gabriel Rudey <gabriel.rudey@gmail.com>",
   "license": "MIT",
   "scripts": {
+    "run": "node index.js",
     "test": "mocha ./tests/**/*"
   },
   "dependencies": {

@@ -5,9 +5,9 @@ const {
 } = require('./attributes');
 
 class Planet {
-    constructor(name) {
+    constructor(name, now = moment()) {
         this.name          = name;
-        this.staminaFilled = moment(); // When it's filled
+        this.staminaFilled = now.clone(); // When it's filled
         this.maxStamina    = 100;
         this.maxHealth     = 1000;
         this.health        = 1000;
@@ -31,9 +31,12 @@ class Planet {
 
     getStaminaOn(date) {
         let diff = date.diff(this.staminaFilled, 'minutes'),
-            rate = Math.ceil(Math.abs(diff) * this.staminaRate);
+            rate = Math.ceil(diff * this.staminaRate);
 
-        return this.maxStamina - rate;
+        if (rate < 0)
+            return this.maxStamina + rate;
+        else
+            return this.maxStamina;
     }
 
     setMaxStamina(value) {
@@ -46,7 +49,7 @@ class Planet {
     processq(now) {
         let job = this.q._head ? this.q._head.data : null, last;
 
-        if (job.doneOn(now)) {
+        while (job && job.doneOn(now)) {
             console.log("Job done:", job);
             job  = this.q.shift();
             last = this._lastBuilds[job.attr];
@@ -56,12 +59,14 @@ class Planet {
 
             // Apply updates
             job.buildOn(this);
+            Planet.ATTRIBUTES[job.attr].buildOn(this, job.targetLevel);
+            job = this.q._head ? this.q._head.data : null, last;
         }
     }
 
-    build(param) {
-        let attr = Planet.ATTRIBUTES[param], level, lastBuild, buildOrder, staminaRecover;
-        if (attr === undefined) throw new TypeError("Invalid build parameter!");
+    build(param, now = moment()) {
+        let attr = Planet.ATTRIBUTES[param], level, lastBuild, buildOrder, staminaRecover, staminaCost;
+        if (attr === undefined) throw new TypeError("Invalid build parameter: " + param);
 
         if (this._lastBuilds[param])
             level = this._lastBuilds[param].targetLevel + 1;
@@ -69,14 +74,23 @@ class Planet {
             level = this.attributes[param] + 1;
 
         if (this.q._tail) lastBuild = this.q._tail.data.due;
-        else lastBuild = null;
+        else lastBuild = now.clone();
+
+        staminaCost = attr.getLevelStaminaCost(level);
+
+        if (this.getStaminaOn(now) < staminaCost)
+            throw `Not enought stamina ${this.getStaminaOn(now)} < ${staminaCost}`;
 
         buildOrder     = attr.requestBuild(level, lastBuild);
         staminaRecover = attr.getLevelStaminaCost(level) * this.staminaRate;
 
         this._lastBuilds[param] = buildOrder;
 
+        console.log('rec', now, this.staminaFilled, now > this.staminaFilled);
+        if (now > this.staminaFilled) this.staminaFilled = now.clone();
+
         this.staminaFilled.add(staminaRecover, 'minutes');
+
         this.q.push(buildOrder);
     }
 
@@ -84,13 +98,13 @@ class Planet {
         buildJob.buildOn(this);
     }
 
-    toJson() {
+    toJson(time = moment()) {
         return {
             name:       this.name,
             attributes: this.attributes,
             health:     this.health,
             maxHealth:  this.maxHealth,
-            stamina:    this.stamina,
+            stamina:    this.getStaminaOn(time),
             maxStamina: this.maxStamina,
         };
     }
