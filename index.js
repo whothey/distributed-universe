@@ -6,19 +6,32 @@ const moment     = require('moment');
 
 const PORT = process.env.PORT || 3000;
 
-let app = express();
+let peers = new Set(process.argv.slice(2));
 let state = moment();
+let app   = express();
 
 app.use(bodyParser.json());
 app.use(cors());
 
 let PlanetService = {
     // Force first planet to be 1
-    list: [new Planet()]
+    list: [new Planet('Base')]
 };
 
 app.get('/', (req, res) => {
     res.json({ message: "Hi there!" });
+});
+
+app.get('/peers', (req, res) => {
+    res.json({ peers: [...peers.values()] });
+})
+
+app.get('/sync/planets', (req, res) => {
+    console.log(`Syncing with ${req.hostname} [${req.ip}]`);
+
+    res.json({
+        planets: PlanetService.list.map(p => p.dumpJson())
+    });
 });
 
 app.get('/planets', (req, res) => {
