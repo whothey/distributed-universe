@@ -3,6 +3,7 @@ const bodyParser = require('body-parser');
 const Planet     = require('./src/planet');
 const cors       = require('cors');
 const moment     = require('moment');
+const axios      = require('axios');
 
 const PORT = process.env.PORT || 3000;
 
@@ -87,5 +88,32 @@ app.get('/planets/:planetid/build/:build', (req, res) => {
         });
     }
 });
+
+// Rollout peer update
+setInterval(function() {
+    console.log("STARTED PEERSYNC", peers);
+
+    peers.forEach(peer => {
+        axios.get(`http://${peer}/peers`)
+            .then(r => {
+                for (let peer of r.data.peers) peers.add(peer);
+            })
+            .catch(r => console.log(`ERROR ON PEER SYNC WITH ${peer}`, r));
+    });
+}, 10000);
+
+setInterval(function() {
+    peers.forEach(peer => {
+        console.log("Syncing with " + peer);
+
+        axios.get(`http://${peer}/sync/planets`)
+            .then(r => {
+                let current = PlanetService.list;
+
+                PlanetService.list = r.data.planets.map(p => Planet.deserialize(p));
+            })
+            .catch(r => console.log(`ERROR ON PLANETS SYNC WITH ${peer}`, r));
+        });
+}, 2000);
 
 app.listen(PORT, () => console.log(`Server up @ ${PORT}`));
