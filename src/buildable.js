@@ -31,6 +31,18 @@ class BuildOrder {
         this.targetLevel = parseInt(targetLevel);
     }
 
+    static deserialize(s) {
+        return new BuildOrder(s.attr, moment(s.due), s.targetLevel);
+    }
+
+    dumpJson() {
+        return {
+            attr: this.attr,
+            due: +this.due,
+            targetLevel: this.targetLevel
+        }
+    }
+
     doneOn(date) {
         return this.due.diff(date) <= 0;
     }

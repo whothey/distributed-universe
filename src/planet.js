@@ -1,5 +1,6 @@
 const moment = require('moment');
 const FastList = require('fast-list');
+const { BuildOrder } = require('./buildable');
 const {
     AttackAttribute, DefenseAttribute, IntelAttribute
 } = require('./attributes');
@@ -17,6 +18,37 @@ class Planet {
 
         for (let key in Planet.ATTRIBUTES)
             this.attributes[key] = 1;
+    }
+
+    static deserialize(serialized_planet) {
+        let p = new Planet();
+
+        for (let prop in serialized_planet) {
+            if (serialized_planet.hasOwnProperty(prop)) {
+                switch (prop) {
+                    case 'staminaFilled':
+                        p.staminaFilled = moment(serialized_planet.staminaFilled);
+                        break;
+
+                    case 'q':
+                        for (let i in serialized_planet.q) {
+                            p.q.push(BuildOrder.deserialize(i));
+                        }
+                        break;
+
+                    case '_lastBuilds':
+                        for (let i in serialized_planet._lastBuilds) {
+                            p._lastBuilds.push(BuildOrder.deserialize(i));
+                        }
+                        break;
+
+                    default:
+                        p[prop] = serialized_planet[prop];
+                }
+            }
+        }
+
+        return p;
     }
 
     get staminaRate() {
@@ -106,6 +138,27 @@ class Planet {
             maxHealth:  this.maxHealth,
             stamina:    this.getStaminaOn(time),
             maxStamina: this.maxStamina,
+        };
+    }
+
+    dumpJson(time = moment()) {
+        let last_builds = [];
+
+        for (let prop in this._lastBuilds) {
+            if (this._lastBuilds.hasOwnProperty(prop)) {
+                last_builds.push(this._lastBuilds[prop].dumpJson());
+            }
+        }
+
+        return {
+            name:       this.name,
+            staminaFilled: +this.staminaFilled,
+            attributes: this.attributes,
+            health:     this.health,
+            maxHealth:  this.maxHealth,
+            maxStamina: this.maxStamina,
+            q:          this.qToJson(),
+            _lastBuilds: last_builds
         };
     }
 
