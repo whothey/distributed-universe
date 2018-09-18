@@ -6,6 +6,7 @@ const moment     = require('moment');
 const axios      = require('axios');
 
 const PORT = process.env.PORT || 3000;
+const ME   = `localhost:${PORT}`;
 
 let peers = new Set(process.argv.slice(2));
 let state = moment();
@@ -19,14 +20,41 @@ let PlanetService = {
     list: [new Planet('Base')]
 };
 
+const recs = new Set();
+
+function reliable_multicast(data) {
+    peers.forEach(peer => {
+        console.log("Multicasting to " + peer);
+
+        axios.post(`http://${peer}/sync/planets`, data)
+            .then(reliable_receive)
+            .catch(r => console.log(`ERROR ON PLANETS SYNC WITH ${peer}`));
+    });
+}
+
+function reliable_receive(request) {
+    const data = request.body, rawdata = JSON.stringify(data), sender = request.get('host');
+
+    console.log(`Received sync from ${sender}`);
+
+    if (! recs.has(rawdata)) {
+        console.log(`Sync has new data (${sender}):`, data);
+        recs.add(rawdata);
+        PlanetService.list = data.planets.map(p => Planet.deserialize(p));
+
+        if (ME != sender) reliable_multicast(data);
+    }
+};
+
 app.get('/', (req, res) => {
     res.json({ message: "Hi there!" });
 });
 
 app.get('/peers', (req, res) => {
     res.json({ peers: [...peers.values()] });
-})
+});
 
+app.post('/sync/planets', reliable_receive);
 app.get('/sync/planets', (req, res) => {
     console.log(`Syncing with ${req.hostname} [${req.ip}]`);
 
@@ -34,6 +62,7 @@ app.get('/sync/planets', (req, res) => {
         planets: PlanetService.list.map(p => p.dumpJson())
     });
 });
+
 
 app.get('/planets', (req, res) => {
     res.json({ planets: PlanetService.list.map(p => p.toJson()) });
@@ -89,31 +118,8 @@ app.get('/planets/:planetid/build/:build', (req, res) => {
     }
 });
 
-// Rollout peer update
 setInterval(function() {
-    console.log("STARTED PEERSYNC", peers);
-
-    peers.forEach(peer => {
-        axios.get(`http://${peer}/peers`)
-            .then(r => {
-                for (let peer of r.data.peers) peers.add(peer);
-            })
-            .catch(r => console.log(`ERROR ON PEER SYNC WITH ${peer}`, r));
-    });
-}, 10000);
-
-setInterval(function() {
-    peers.forEach(peer => {
-        console.log("Syncing with " + peer);
-
-        axios.get(`http://${peer}/sync/planets`)
-            .then(r => {
-                let current = PlanetService.list;
-
-                PlanetService.list = r.data.planets.map(p => Planet.deserialize(p));
-            })
-            .catch(r => console.log(`ERROR ON PLANETS SYNC WITH ${peer}`, r));
-        });
+    reliable_multicast({ planets: PlanetService.list.map(p => p.dumpJson()) });
 }, 2000);
 
 app.listen(PORT, () => console.log(`Server up @ ${PORT}`));
