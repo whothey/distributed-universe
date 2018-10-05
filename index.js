@@ -4,13 +4,34 @@ const Planet     = require('./src/planet');
 const cors       = require('cors');
 const moment     = require('moment');
 const axios      = require('axios');
+const chalk      = require('chalk');
 
 const PORT = process.env.PORT || 3000;
 const ME   = `localhost:${PORT}`;
 
+const PEER_DISCOVER_INTERVAL = 10 * 1000; // 10 secs
+
 let peers = new Set(process.argv.slice(2));
 let state = moment();
 let app   = express();
+
+console.log('Initial peers:', peers);
+
+const reliable_multicast = (uri, data) => Promise.all([...peers].map(
+    peer => axios.post(`http://${peer}${uri}`, data)
+        .catch(e => {
+            switch (e.code) {
+            case 'ECONNREFUSED':
+                console.log(chalk.black.bgYellow(`WARN: ${peer} seems to be down, will try on next round.`));
+                break;
+
+            default:
+                console.log(`Error on ${peer}${uri}: ${e}`);
+            }
+        })
+));
+
+const reliable_receive = cb => ({ data } = {}) => cb(data);
 
 app.use(bodyParser.json());
 app.use(cors());
@@ -22,36 +43,20 @@ let PlanetService = {
 
 const recs = new Set();
 
-function reliable_multicast(data) {
-    peers.forEach(peer => {
-        console.log("Multicasting to " + peer);
-
-        axios.post(`http://${peer}/sync/planets`, data)
-            .then(reliable_receive)
-            .catch(r => console.log(`ERROR ON PLANETS SYNC WITH ${peer}`));
-    });
-}
-
-function reliable_receive(request) {
-    const data = request.body, rawdata = JSON.stringify(data), sender = request.get('host');
-
-    console.log(`Received sync from ${sender}`);
-
-    if (! recs.has(rawdata)) {
-        console.log(`Sync has new data (${sender}):`, data);
-        recs.add(rawdata);
-        PlanetService.list = data.planets.map(p => Planet.deserialize(p));
-
-        if (ME != sender) reliable_multicast(data);
-    }
-};
-
 app.get('/', (req, res) => {
     res.json({ message: "Hi there!" });
 });
 
-app.get('/peers', (req, res) => {
-    res.json({ peers: [...peers.values()] });
+app.post('/peers', (req, res) => {
+    const { sender } = req.body;
+
+    console.log(`Peers gathered by ${sender}`);
+
+    if (sender !== ME) {
+        peers.add(sender);
+    }
+
+    res.json({ peers: [...peers] });
 });
 
 app.post('/sync/planets', reliable_receive);
@@ -62,7 +67,6 @@ app.get('/sync/planets', (req, res) => {
         planets: PlanetService.list.map(p => p.dumpJson())
     });
 });
-
 
 app.get('/planets', (req, res) => {
     res.json({ planets: PlanetService.list.map(p => p.toJson()) });
@@ -118,8 +122,19 @@ app.get('/planets/:planetid/build/:build', (req, res) => {
     }
 });
 
-setInterval(function() {
-    reliable_multicast({ planets: PlanetService.list.map(p => p.dumpJson()) });
-}, 2000);
+const discover_peers = (sender = ME) => reliable_multicast('/peers', { sender })
+      .then(receive_peers)
+      .catch(e => console.log('Error', e));
+// For each peer received, add to peers map.
+const join_peers = ps => ps.forEach(p => p !== ME ? peers.add(p) : false);
+// Destructure response body to peers and apply to join_peers
+const receive_peers = proms => proms.map(
+    reliable_receive(({ peers = [] } = {}) => join_peers(peers))
+);
+
+setInterval(discover_peers, PEER_DISCOVER_INTERVAL);
+
+// First round of discovering peers
+discover_peers();
 
 app.listen(PORT, () => console.log(`Server up @ ${PORT}`));
