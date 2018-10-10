@@ -5,6 +5,7 @@ const cors       = require('cors');
 const moment     = require('moment');
 const axios      = require('axios');
 const chalk      = require('chalk');
+const pkg        = require('./package.json');
 
 const PORT = process.env.PORT || 3000;
 const ME   = `localhost:${PORT}`;
@@ -44,7 +45,9 @@ let PlanetService = {
 const recs = new Set();
 
 app.get('/', (req, res) => {
-    res.json({ message: "Hi there!" });
+    const { name, version } = pkg;
+
+    res.json({ app: name, version });
 });
 
 app.post('/peers', (req, res) => {
