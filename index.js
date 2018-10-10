@@ -6,6 +6,7 @@ const moment     = require('moment');
 const axios      = require('axios');
 const chalk      = require('chalk');
 const pkg        = require('./package.json');
+const { reliable_multicast, reliable_receive } = require('./src/reliable');
 
 const PORT = process.env.PORT || 3000;
 const ME   = `localhost:${PORT}`;
@@ -16,21 +17,11 @@ let peers = new Set(process.argv.slice(2));
 let state = moment();
 let app   = express();
 
+const multicast = reliable_multicast(peers);
+const receive = reliable_receive;
+
 console.log('Initial peers:', peers);
 
-const reliable_multicast = (uri, data) => Promise.all([...peers].map(
-    peer => axios.post(`http://${peer}${uri}`, data)
-        .catch(e => {
-            switch (e.code) {
-            case 'ECONNREFUSED':
-                console.log(chalk.black.bgYellow(`WARN: ${peer} seems to be down, will try on next round.`));
-                break;
-
-            default:
-                console.log(`Error on ${peer}${uri}: ${e}`);
-            }
-        })
-));
 
 const reliable_receive = cb => ({ data } = {}) => cb(data);
 
@@ -125,15 +116,17 @@ app.get('/planets/:planetid/build/:build', (req, res) => {
     }
 });
 
-const discover_peers = (sender = ME) => reliable_multicast('/peers', { sender })
+const discover_peers = (sender = ME) => multicast('/peers', { sender })
       .then(receive_peers)
       .catch(e => console.log('Error', e));
+
 // For each peer received, add to peers map.
 const join_peers = ps => ps.forEach(p => p !== ME ? peers.add(p) : false);
+
 // Destructure response body to peers and apply to join_peers
 const receive_peers = proms => proms.map(
-    reliable_receive(({ peers = [] } = {}) => join_peers(peers))
-);
+    receive(({ peers = [] } = {}) => join_peers(peers))
+)
 
 setInterval(discover_peers, PEER_DISCOVER_INTERVAL);
 
