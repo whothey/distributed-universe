@@ -2,7 +2,6 @@ const express = require('express');
 const bodyParser = require('body-parser');
 const cors = require('cors');
 const moment = require('moment');
-const axios = require('axios');
 const Planet = require('./src/planet');
 const pkg = require('./package.json');
 const { reliableMulticast, reliableReceive } = require('./src/reliable');
@@ -29,8 +28,6 @@ const PlanetService = {
   list: [new Planet('Base')],
 };
 
-const recs = new Set();
-
 app.get('/', (req, res) => {
   const { name, version } = pkg;
 
@@ -48,23 +45,6 @@ app.post('/peers', (req, res) => {
 
   res.json({ peers: [...peers] });
 });
-
-function reliable_receive_peers(request) {
-  console.log(request.headers);
-  const data = request.body;
-  const sender = request.get('host');
-
-  console.log(`Received peers from ${sender}`);
-
-  data.peers.forEach((p) => {
-    if (!peers.has(p)) {
-      console.log(`New peer added (${sender}):`, p);
-      peers.add(p);
-
-      // if (ME != sender) reliableMulticast(data);
-    }
-  });
-}
 
 app.get('/', (req, res) => {
   res.json({ message: 'Hi there!' });
@@ -88,7 +68,7 @@ app.get('/planets', (req, res) => {
 });
 
 app.post('/planets', (req, res) => {
-  const name = req.body.name;
+  const { name } = req.body;
 
   const newid = PlanetService.list.length;
 
@@ -139,23 +119,23 @@ app.get('/planets/:planetid/build/:build', (req, res) => {
   }
 });
 
-const discover_peers = (sender = ME) => multicast('/peers', { sender })
-  .then(receive_peers)
-  .catch(e => console.log('Error', e));
-
 // For each peer received, add to peers map.
-const join_peers = ps => ps.forEach(p => (p !== ME ? peers.add(p) : false));
+const joinPeers = ps => ps.forEach(p => (p !== ME ? peers.add(p) : false));
 
-// Destructure response body to peers and apply to join_peers
-const receive_peers = proms => proms.map(
-  receive(({ peers: newPeers = [] } = {}) => join_peers(newPeers)),
+// Destructure response body to peers and apply to joinPeers
+const receivePeers = proms => proms.map(
+  receive(({ peers: newPeers = [] } = {}) => joinPeers(newPeers)),
 );
 
-setInterval(discover_peers, PEER_DISCOVER_INTERVAL);
+const discoverPeers = (sender = ME) => multicast('/peers', { sender })
+  .then(receivePeers)
+  .catch(e => console.log('Error', e));
+
+setInterval(discoverPeers, PEER_DISCOVER_INTERVAL);
 
 // First round of discovering peers
-discover_peers();
+discoverPeers();
 
-setInterval(discover_peers, PEER_DISCOVER_INTERVAL);
+setInterval(discoverPeers, PEER_DISCOVER_INTERVAL);
 
 app.listen(PORT, () => console.log(`Server up @ ${PORT}`));
