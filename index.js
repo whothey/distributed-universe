@@ -50,8 +50,9 @@ app.post('/peers', (req, res) => {
 });
 
 function reliable_receive_peers(request) {
-  const data = request.body; const
-    sender = request.get('host');
+  console.log(request.headers);
+  const data = request.body;
+  const sender = request.get('host');
 
   console.log(`Received peers from ${sender}`);
 
@@ -89,9 +90,7 @@ app.get('/planets', (req, res) => {
 app.post('/planets', (req, res) => {
   const name = req.body.name;
 
-
   const newid = PlanetService.list.length;
-
 
   const planet = new Planet(name, state);
 
@@ -102,7 +101,7 @@ app.post('/planets', (req, res) => {
 });
 
 app.post('/timewarp', (req, res) => {
-  const time = req.body.time;
+  const { time } = req.body;
 
   console.log(`Time Warping: ${time} ${Planet.STAMINA_UPDATE_FREQ}`);
   state.add(time, Planet.STAMINA_UPDATE_FREQ);
@@ -125,17 +124,13 @@ app.get('/planets/:planetid/q', (req, res) => {
 });
 
 app.get('/planets/:planetid/build/:build', (req, res) => {
-  const planetId = req.params.planetid;
+  const { planetid, build } = req.params;
 
-
-  const buildParam = req.params.build;
-
-
-  const planet = PlanetService.list[req.params.planetid];
+  const planet = PlanetService.list[planetid];
 
   try {
-    planet.build(buildParam, state);
-    res.json({ status: 'building', building: buildParam });
+    planet.build(build, state);
+    res.json({ status: 'building', building: build });
   } catch (e) {
     res.json({
       status: 'error',
@@ -153,7 +148,7 @@ const join_peers = ps => ps.forEach(p => (p !== ME ? peers.add(p) : false));
 
 // Destructure response body to peers and apply to join_peers
 const receive_peers = proms => proms.map(
-  receive(({ peers = [] } = {}) => join_peers(peers)),
+  receive(({ peers: newPeers = [] } = {}) => join_peers(newPeers)),
 );
 
 setInterval(discover_peers, PEER_DISCOVER_INTERVAL);
@@ -161,12 +156,6 @@ setInterval(discover_peers, PEER_DISCOVER_INTERVAL);
 // First round of discovering peers
 discover_peers();
 
-setInterval(() => {
-  peers.forEach(
-    p => axios.get(`http://${peer}/peers`, data)
-      .then(reliable_receive_peers)
-      .catch(r => console.log(`ERROR ON PEER SYNC WITH ${p}`)),
-  );
-});
+setInterval(discover_peers, PEER_DISCOVER_INTERVAL);
 
 app.listen(PORT, () => console.log(`Server up @ ${PORT}`));
