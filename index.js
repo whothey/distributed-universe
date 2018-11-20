@@ -22,9 +22,6 @@ const receive = reliable_receive;
 
 console.log('Initial peers:', peers);
 
-
-const reliable_receive = cb => ({ data } = {}) => cb(data);
-
 app.use(bodyParser.json());
 app.use(cors());
 
@@ -51,6 +48,29 @@ app.post('/peers', (req, res) => {
     }
 
     res.json({ peers: [...peers] });
+});
+
+function reliable_receive_peers(request) {
+    const data = request.body, sender = request.get('host');
+
+    console.log(`Received peers from ${sender}`);
+
+    data.peers.forEach(p => {
+        if (! peers.has(p)) {
+            console.log(`New peer added (${sender}):`, p);
+            peers.add(p);
+
+            //if (ME != sender) reliable_multicast(data);
+        }
+    });
+};
+
+app.get('/', (req, res) => {
+    res.json({ message: "Hi there!" });
+});
+
+app.get('/peers', (req, res) => {
+    res.json({ peers: [...peers.values()] });
 });
 
 app.post('/sync/planets', reliable_receive);
@@ -132,5 +152,13 @@ setInterval(discover_peers, PEER_DISCOVER_INTERVAL);
 
 // First round of discovering peers
 discover_peers();
+
+setInterval(function() {
+  peers.forEach(
+    p => axios.get(`http://${peer}/peers`, data)
+    .then(reliable_receive_peers)
+    .catch(r => console.log(`ERROR ON PEER SYNC WITH ${p}`))
+  )
+});
 
 app.listen(PORT, () => console.log(`Server up @ ${PORT}`));
