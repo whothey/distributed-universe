@@ -1,8 +1,8 @@
 const axios = require('axios');
 const chalk = require('chalk');
 
-const reliableMulticast = peers => (uri, data) => Promise.all([...peers].map(
-  peer => axios.post(`http://${peer}${uri}`, data)
+const reliableMulticast = peers => (uri, data, method = 'post') => Promise.all([...peers].map(
+  peer => axios({ url: `http://${peer}${uri}`, data, method })
     .catch((e) => {
       switch (e.code) {
         case 'ECONNREFUSED':

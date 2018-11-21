@@ -12,7 +12,7 @@ const ME = `localhost:${PORT}`;
 const PEER_DISCOVER_INTERVAL = 10 * 1000; // 10 secs
 
 const peers = new Set(process.argv.slice(2));
-const state = moment();
+let state = moment();
 const app = express();
 
 const multicast = reliableMulticast(peers);
@@ -61,6 +61,10 @@ app.get('/sync/planets', (req, res) => {
   res.json({
     planets: PlanetService.list.map(p => p.dumpJson()),
   });
+});
+
+app.get('/state', (req, res) => {
+  res.json({ state: +state, planets: PlanetService.list.map(p => p.dumpJson()) });
 });
 
 app.get('/planets', (req, res) => {
@@ -127,6 +131,22 @@ const receivePeers = proms => proms.map(
   receive(({ peers: newPeers = [] } = {}) => joinPeers(newPeers)),
 );
 
+// Destructure response body to peers and apply to joinPeers
+const applyState = receive(({ state: s, planets } = {}) => {
+  console.log('state received:', { state: s, planets });
+
+  if (s) state = moment(s);
+  if (planets) PlanetService.list = planets.map(Planet.deserialize);
+
+  console.log('updated state :', { state: +state, planets: PlanetService.list.map(p => p.toJson()) });
+});
+
+const lastState = ({ data: { state: a } }, { data: { state: b } }) => a - b;
+const receiveState = proms => console.log(proms.length) || applyState(proms.sort(lastState).pop());
+const retreiveLastState = (sender = ME) => multicast('/state', { sender }, 'get')
+  .then(receiveState)
+  .catch(e => console.log('Error', e));
+
 const discoverPeers = (sender = ME) => multicast('/peers', { sender })
   .then(receivePeers)
   .catch(e => console.log('Error', e));
@@ -134,8 +154,6 @@ const discoverPeers = (sender = ME) => multicast('/peers', { sender })
 setInterval(discoverPeers, PEER_DISCOVER_INTERVAL);
 
 // First round of discovering peers
-discoverPeers();
-
-setInterval(discoverPeers, PEER_DISCOVER_INTERVAL);
+discoverPeers().then(() => retreiveLastState());
 
 app.listen(PORT, () => console.log(`Server up @ ${PORT}`));
