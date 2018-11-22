@@ -4,6 +4,7 @@ const cors = require('cors');
 const moment = require('moment');
 const Planet = require('./src/planet');
 const pkg = require('./package.json');
+const VectorClock = require('./src/vector-clock');
 const { reliableMulticast, reliableReceive } = require('./src/reliable');
 
 const PORT = process.env.PORT || 3000;
@@ -17,6 +18,8 @@ const app = express();
 
 const multicast = reliableMulticast(peers);
 const receive = reliableReceive;
+
+const vectorClock = new VectorClock(ME);
 
 console.log('Initial peers:', peers);
 
@@ -64,7 +67,11 @@ app.get('/sync/planets', (req, res) => {
 });
 
 app.get('/state', (req, res) => {
-  res.json({ state: +state, planets: PlanetService.list.map(p => p.dumpJson()) });
+  res.json({
+    vectorClock: vectorClock.serialize(),
+    state: +state,
+    planets: PlanetService.list.map(p => p.dumpJson()),
+  });
 });
 
 app.get('/planets', (req, res) => {
@@ -81,6 +88,8 @@ app.post('/planets', (req, res) => {
   console.log(`Created planet ${newid}: ${planet.name}`);
   PlanetService.list.push(planet);
 
+  vectorClock.increment();
+
   res.json({ message: 'OK!', planet_id: newid });
 });
 
@@ -91,6 +100,8 @@ app.post('/timewarp', (req, res) => {
   state.add(time, Planet.STAMINA_UPDATE_FREQ);
 
   PlanetService.list.map(p => p.processq(state));
+
+  vectorClock.increment();
 
   res.json({ message: 'OK!', newtime: +state });
 });
@@ -107,13 +118,14 @@ app.get('/planets/:planetid/q', (req, res) => {
   res.json({ q });
 });
 
-app.get('/planets/:planetid/build/:build', (req, res) => {
+app.post('/planets/:planetid/build/:build', (req, res) => {
   const { planetid, build } = req.params;
 
   const planet = PlanetService.list[planetid];
 
   try {
     planet.build(build, state);
+    vectorClock.increment();
     res.json({ status: 'building', building: build });
   } catch (e) {
     res.json({
@@ -132,17 +144,23 @@ const receivePeers = proms => proms.map(
 );
 
 // Destructure response body to peers and apply to joinPeers
-const applyState = receive(({ state: s, planets } = {}) => {
-  console.log('state received:', { state: s, planets });
+const applyState = receive(({ vectorClock: v, state: s, planets } = {}) => {
+  console.log('state received:', { vectorClock: v, state: s, planets });
 
+  if (v) vectorClock.replace(v);
   if (s) state = moment(s);
   if (planets) PlanetService.list = planets.map(Planet.deserialize);
 
-  console.log('updated state :', { state: +state, planets: PlanetService.list.map(p => p.toJson()) });
+  console.log('updated state :', {
+    state: +state,
+    vectorClock,
+    planets: PlanetService.list.map(p => p.toJson()),
+  });
 });
 
+// Get the one with most peers
 const lastState = ({ data: { state: a } }, { data: { state: b } }) => a - b;
-const receiveState = proms => console.log(proms.length) || applyState(proms.sort(lastState).pop());
+const receiveState = proms => applyState(proms.sort(lastState).pop());
 const retreiveLastState = (sender = ME) => multicast('/state', { sender }, 'get')
   .then(receiveState)
   .catch(e => console.log('Error', e));
@@ -154,6 +172,6 @@ const discoverPeers = (sender = ME) => multicast('/peers', { sender })
 setInterval(discoverPeers, PEER_DISCOVER_INTERVAL);
 
 // First round of discovering peers
-discoverPeers().then(() => retreiveLastState());
+discoverPeers().then(retreiveLastState);
 
 app.listen(PORT, () => console.log(`Server up @ ${PORT}`));
