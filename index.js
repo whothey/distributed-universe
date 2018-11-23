@@ -21,15 +21,36 @@ const receive = reliableReceive;
 
 const vectorClock = new VectorClock(ME);
 
-console.log('Initial peers:', peers);
-
-app.use(bodyParser.json());
-app.use(cors());
-
 const PlanetService = {
   // Force first planet to be 1
   list: [new Planet('Base')],
 };
+
+const publishState = () => multicast('/state', {
+  vectorClock: vectorClock.serialize(),
+  state,
+  planets: PlanetService.list.map(p => p.dumpJson()),
+}, 'patch');
+
+const patchState = ({ vectorClock: v, state: s, planets } = {}) => {
+  console.log('state received', { vectorClock: v, state: s });
+
+  vectorClock.updateClock(v);
+
+  if (s) state = moment(s);
+  if (planets) PlanetService.list = planets.map(Planet.deserialize);
+
+  console.log('updated state :', {
+    state: +state,
+    vectorClock: vectorClock.serialize(),
+    planets: PlanetService.list.length,
+  });
+};
+
+console.log('Initial peers:', peers);
+
+app.use(bodyParser.json());
+app.use(cors());
 
 app.get('/', (req, res) => {
   const { name, version } = pkg;
@@ -74,6 +95,12 @@ app.get('/state', (req, res) => {
   });
 });
 
+app.patch('/state', (req, res) => {
+  patchState(req.body);
+
+  res.json({ status: 'patched' });
+});
+
 app.get('/planets', (req, res) => {
   res.json({ planets: PlanetService.list.map(p => p.toJson()) });
 });
@@ -89,6 +116,7 @@ app.post('/planets', (req, res) => {
   PlanetService.list.push(planet);
 
   vectorClock.increment();
+  publishState();
 
   res.json({ message: 'OK!', planet_id: newid });
 });
@@ -102,6 +130,7 @@ app.post('/timewarp', (req, res) => {
   PlanetService.list.map(p => p.processq(state));
 
   vectorClock.increment();
+  publishState();
 
   res.json({ message: 'OK!', newtime: +state });
 });
@@ -126,6 +155,7 @@ app.post('/planets/:planetid/build/:build', (req, res) => {
   try {
     planet.build(build, state);
     vectorClock.increment();
+    publishState();
     res.json({ status: 'building', building: build });
   } catch (e) {
     res.json({
@@ -145,7 +175,11 @@ const receivePeers = proms => proms.map(
 
 // Destructure response body to peers and apply to joinPeers
 const applyState = receive(({ vectorClock: v, state: s, planets } = {}) => {
-  console.log('state received:', { vectorClock: v, state: s, planets });
+  console.log('state received:', {
+    vectorClock: v && v.serialize && v.serialize(),
+    state: s,
+    planets: planets && planets.length,
+  });
 
   if (v) vectorClock.replace(v);
   if (s) state = moment(s);
@@ -153,8 +187,8 @@ const applyState = receive(({ vectorClock: v, state: s, planets } = {}) => {
 
   console.log('updated state :', {
     state: +state,
-    vectorClock,
-    planets: PlanetService.list.map(p => p.toJson()),
+    vectorClock: vectorClock.serialize(),
+    planets: PlanetService.list.length,
   });
 });
 
