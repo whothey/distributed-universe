@@ -23,6 +23,15 @@ Servers communicate by HTTP via a JSON REST API.
  - Fail state recovery from servers that crash
  - Vector-clock message sync
 
+# Config
+
+TODO
+
 ## Endpoints
 
 TODO
+
+## Debug
+
+You might want to use Postman, so there is a basic collection with some endpoints in
+`distunivers.postman_collection.json`.
