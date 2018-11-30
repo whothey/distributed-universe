@@ -1,0 +1,107 @@
+{
+	"info": {
+		"_postman_id": "2bdd6b3e-9185-4814-b64c-13ba6ec29a3f",
+		"name": "distuniverse",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "State",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": ""
+				},
+				"url": {
+					"raw": "{{URL}}/state",
+					"host": [
+						"{{URL}}"
+					],
+					"path": [
+						"state"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Peers",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": ""
+				},
+				"url": {
+					"raw": "{{URL}}/peers",
+					"host": [
+						"{{URL}}"
+					],
+					"path": [
+						"peers"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Add Planet",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"name": "Content-Type",
+						"value": "application/json",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n\t\"name\": \"My Panet Name\"\n}"
+				},
+				"url": {
+					"raw": "{{URL}}/planets",
+					"host": [
+						"{{URL}}"
+					],
+					"path": [
+						"planets"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "TimeWarp",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"name": "Content-Type",
+						"type": "text",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n\t\"time\": 1\n}"
+				},
+				"url": {
+					"raw": "{{URL}}/timewarp",
+					"host": [
+						"{{URL}}"
+					],
+					"path": [
+						"timewarp"
+					]
+				}
+			},
+			"response": []
+		}
+	]
+}
