@@ -35,3 +35,10 @@ TODO
 
 You might want to use Postman, so there is a basic collection with some endpoints in
 `distunivers.postman_collection.json`.
+
+## Warns
+
+Due to evolution on Node.js knowledge and tooling around project, right now the code is kinda messy.
+Probably I will work more on that later
+
+The "frontend" client will soon be available.
